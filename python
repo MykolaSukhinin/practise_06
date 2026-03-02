@@ -1,0 +1,50 @@
+import pymysql
+import pandas as pd
+import duckdb 
+
+
+mysql_conn = pymysql.connect(
+    host="localhost",
+    user="root",
+    password="MySQL_Student123",
+    database="employees"
+)
+
+df = pd.read_sql("SELECT * FROM employees_data", mysql_conn)
+
+
+emp_rollup = (
+    df.groupby("emp_no")
+      .agg(
+          birth_date=("birth_date", "min"),
+          first_name=("first_name", "min"),
+          last_name=("last_name", "min"),
+          gender=("gender", "min"),
+          hire_date=("hire_date", "min"),
+          departments_worked=("dept_no", "nunique"),
+          first_dept_no=("dept_no", "min"),
+          first_dept_name=("dept_name", "min"),
+          first_salary_from_date=("from_date", "min"),
+          last_salary_to_date=("to_date", "max"),
+          salary_records=("salary", "count"),
+          min_salary=("salary", "min"),
+          max_salary=("salary", "max"),
+          avg_salary=("salary", "mean"),
+      )
+      .reset_index()
+)
+
+emp_rollup["salary_growth"] = (
+    emp_rollup["max_salary"] - emp_rollup["min_salary"]
+)
+
+
+duck_conn = duckdb.connect("etl.duckdb")
+
+duck_conn.register("emp_rollup_df", emp_rollup)
+
+duck_conn.execute("""
+CREATE OR REPLACE TABLE emp_rollup AS
+SELECT * FROM emp_rollup_df
+""")
+
